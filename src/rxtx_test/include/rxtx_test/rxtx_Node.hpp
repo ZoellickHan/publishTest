@@ -12,7 +12,7 @@
 #include "msg_interfaces/msg/sentry_gimbal_msg.hpp"
 namespace serial_driver
 {
-class TestNode : public rclcpp :: Node
+class TestNode : public rclcpp::Node
 {
 public:
     TestNode(const rclcpp::NodeOptions & options);

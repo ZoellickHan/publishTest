@@ -3,7 +3,7 @@
 
 namespace serial_driver
 {
-TestNode::TestNode(const rclcpp::NodeOptions & options) : Node("rxtx_test_node", options)
+TestNode::TestNode(const rclcpp::NodeOptions & options) : rclcpp::Node("rxtx_test_node", options)
 {
     gimbal_msg_sub_ = this->create_subscription<msg_interfaces::msg::GimbalMsg>( "/gimbal_command", rclcpp::SensorDataQoS(),
     std::bind(&TestNode::debug1,this,std::placeholders::_1 ));
@@ -27,3 +27,6 @@ void TestNode::debug2( msg_interfaces::msg::SentryGimbalMsg::SharedPtr msg)
     return;
 }
 }
+
+#include "rclcpp_components/register_node_macro.hpp"
+RCLCPP_COMPONENTS_REGISTER_NODE(serial_driver::TestNode)
