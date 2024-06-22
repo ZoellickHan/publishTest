@@ -1,4 +1,4 @@
-#include "serial_driver/ReadNode.hpp"
+#include "serial_driver_ch343/ReadNode.hpp"
 
 
 /**
@@ -21,8 +21,8 @@ ReadNode::ReadNode(const rclcpp::NodeOptions & options) : rclcpp::Node("read", o
 , config(std::make_shared<SerialConfig>(2000000,8,false,StopBit::TWO,Parity::NONE)), port(std::make_shared<Port>(config))
 {
 
-    gimabal_msg_pub_ = this->create_publisher<auto_aim_interfaces::msg::GimbalMsg>("/gimbal_msg", 10);
-    sentry_gimbal_msg_pub_ = this->create_publisher<auto_aim_interfaces::msg::SentryGimbalMsg>("/sentry_gimbal_msg", 10);
+    gimabal_msg_pub_ = this->create_publisher<msg_interfaces::msg::GimbalMsg>("/gimbal_msg", 10);
+    sentry_gimbal_msg_pub_ = this->create_publisher<msg_interfaces::msg::SentryGimbalMsg>("/sentry_gimbal_msg", 10);
     //create the publisher
     // gimabal_msg_ = this->create_publisher<TwoCRC_GimbalMsg>("gimbal msg", 10);
     //open the port
@@ -44,7 +44,7 @@ ReadNode::ReadNode(const rclcpp::NodeOptions & options) : rclcpp::Node("read", o
     //receive 
     receive();
     //decode
-    // decode();
+    decode();
 }
 
 // void ReadNode::gimbalMsgCB(auto_aim_interfaces::msg::GimbalMsg::SharedPtr msg){

@@ -9,12 +9,12 @@
 #include <std_msgs/msg/string.hpp>
 #include <deque>
 
-#include "serial_driver/protocol.hpp"
-#include "serial_driver/crc.hpp"
+#include "serial_driver_ch343/protocol.hpp"
+#include "serial_driver_ch343/crc.hpp"
 #include  "serialDriver.hpp"
 
-#include "auto_aim_interfaces/msg/gimbal_msg.hpp"
-#include "auto_aim_interfaces/msg/sentry_gimbal_msg.hpp"
+#include "msg_interfaces/msg/gimbal_msg.hpp"
+#include "msg_interfaces/msg/sentry_gimbal_msg.hpp"
 
 
 namespace serial_driver
@@ -46,11 +46,11 @@ private:
     uint8_t receiveBuffer[READER_BUFFER_SIZE];
 
     //info
-    rclcpp::Publisher<auto_aim_interfaces::msg::GimbalMsg>::SharedPtr gimabal_msg_pub_;
-    rclcpp::Publisher<auto_aim_interfaces::msg::SentryGimbalMsg>::SharedPtr sentry_gimbal_msg_pub_;
+    rclcpp::Publisher<msg_interfaces::msg::GimbalMsg>::SharedPtr gimabal_msg_pub_;
+    rclcpp::Publisher<msg_interfaces::msg::SentryGimbalMsg>::SharedPtr sentry_gimbal_msg_pub_;
 
-    void gimbalMsgCB(auto_aim_interfaces::msg::GimbalMsg::SharedPtr msg);
-    void sentryGimbalMsgCB(auto_aim_interfaces::msg::SentryGimbalMsg::SharedPtr msg);
+    // void gimbalMsgCB(msg_interfaces::msg::GimbalMsg::SharedPtr msg);
+    // void sentryGimbalMsgCB(msg_interfaces::msg::SentryGimbalMsg::SharedPtr msg);
 
     //protocol 
     Header header;
