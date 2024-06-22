@@ -80,9 +80,11 @@ namespace serial_driver
         int  transmit(uint8_t* buff,int writeSize);  
         int  receive(uint8_t* buffer);
         
-        
-    private:
         int fd;
+
+    private:
+    
+        
         std::shared_ptr<SerialConfig> config;
 
         int num_per_read        = 0;
@@ -90,7 +92,6 @@ namespace serial_driver
 
         bool isinit          = false;
         bool isopen          = false;
-        //rx thread
         PkgState            frameState;
     };
 }

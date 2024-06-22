@@ -1,5 +1,5 @@
 #include "serial_driver_ch343/ReadNode.hpp"
-
+#include "chrono"
 
 /**
  * TODO:
@@ -23,21 +23,18 @@ ReadNode::ReadNode(const rclcpp::NodeOptions & options) : rclcpp::Node("read_ch3
     RCLCPP_WARN(get_logger(),"Begin the Node read_ch343 !" );
     gimabal_msg_pub_ = this->create_publisher<msg_interfaces::msg::GimbalMsg>("/gimbal_msg", 10);
     sentry_gimbal_msg_pub_ = this->create_publisher<msg_interfaces::msg::SentryGimbalMsg>("/sentry_gimbal_msg", 10);
-
+    
     //open the port
     while(true)
     {
-        if(!port->isPortOpen())
-        {
-            if(!port->openPort())
-            {
-                port->reopen();
-            }
-            else
-            {
-                break;
-            }
-        }
+      if(port->isPortOpen())
+      {
+        break;
+      } 
+      else
+      {
+        port->openPort();
+      }
     }
 
     while(true)
@@ -55,8 +52,8 @@ ReadNode::~ReadNode(){
 
 PkgState ReadNode::decode()
 {
+    
     int size = buffer.size();
-    printf("size : %d \n",size);
 
     if( size < sizeof(Header) )
         return PkgState::HEADER_INCOMPLETE;
@@ -86,7 +83,6 @@ PkgState ReadNode::decode()
                 return PkgState::PAYLOAD_INCOMPLETE;
             }
 
-            printf("id: %d  \n",header.protocolID);
             std::copy(buffer.begin() + i ,buffer.begin() + i + header.dataLen + sizeof(Header) + 2, decodeBuffer);
             crc_ok = crc16::Verify_CRC16_Check_Sum(decodeBuffer,header.dataLen + sizeof(Header) + 2);
             printf("crc ok : %d \n",crc_ok);
@@ -98,12 +94,17 @@ PkgState ReadNode::decode()
                 buffer.erase(buffer.begin(), buffer.begin() + i + header.dataLen + sizeof(Header) + 2);
                 return PkgState::CRC_PKG_ERROR;
             }
-
             
-            memset(decodeBuffer,0x00,sizeof(decodeBuffer));
             buffer.erase(buffer.begin(), buffer.begin() + i + header.dataLen + sizeof(Header) + 2);
             bag_sum ++;
+
+            std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> time = end - start;
+           
+            printf("crc error rate : %f bag sum rate: %f time : %f \n",
+            float(error_sum_header + error_sum_payload)/float(bag_sum),double(bag_sum)/time.count(),time.count());
             classify(decodeBuffer); 
+            memset(decodeBuffer,0x00,sizeof(decodeBuffer));
             return PkgState::COMPLETE;
         }
     }
@@ -114,6 +115,7 @@ void ReadNode::classify(uint8_t* data)
     Header header = arrayToStruct<Header>(data);
     TwoCRC_GimbalMsg twoCRC_GimbalMsg;
     TwoCRC_SentryGimbalMsg twoCRC_SentryGimbalMsg;
+    printf("id:%d \n",header.protocolID);
     switch (header.protocolID)
     {
         case CommunicationType::TWOCRC_GIMBAL_MSG:
@@ -154,14 +156,15 @@ void ReadNode::classify(uint8_t* data)
             printf("type is not defined !\n");
             break;
         }
-
     }
 }
 
 int ReadNode::receive()
 {
     int read_num = 0;
-    read_num = port->receive(receiveBuffer);
+    read_num = read(port->fd,receiveBuffer,64);
+    // read_num = port->receive(receiveBuffer);
+    printf("num per read = %d\n",read_num);
 
     if(read_num > 0)
     {
@@ -169,10 +172,9 @@ int ReadNode::receive()
     }
     else
     {
-        RCLCPP_ERROR(get_logger(),"Can not receive correctly !");
-        port->reopen();
-        return read_num;
+
     }
+    return read_num;
 }
 
 }//serial_driver

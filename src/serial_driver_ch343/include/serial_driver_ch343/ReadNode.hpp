@@ -16,7 +16,8 @@
 #include "msg_interfaces/msg/gimbal_msg.hpp"
 #include "msg_interfaces/msg/sentry_gimbal_msg.hpp"
 
-
+#include <chrono>
+#include <cstring>
 namespace serial_driver
 {
 
@@ -25,6 +26,7 @@ class ReadNode : public rclcpp::Node
 public:
   ReadNode(const rclcpp::NodeOptions & options);
   ~ReadNode();
+  std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
 
 private:
   

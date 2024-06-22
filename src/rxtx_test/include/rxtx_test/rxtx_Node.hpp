@@ -16,7 +16,7 @@ class TestNode : public rclcpp::Node
 {
 public:
     TestNode(const rclcpp::NodeOptions & options);
-
+    std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
 private:
 
     void debug1(msg_interfaces::msg::GimbalMsg::SharedPtr msg);
@@ -25,7 +25,7 @@ private:
   
     rclcpp::Subscription<msg_interfaces::msg::SentryGimbalMsg>::SharedPtr sentry_gimbal_msg_sub_;
     rclcpp::Subscription<msg_interfaces::msg::GimbalMsg>::SharedPtr gimbal_msg_sub_;
-    
+    int bag_sum = 0;
 
 };
 }
