@@ -1,0 +1,68 @@
+#ifndef SERIAL_DRIVER_MY_NODE_HPP_
+#define SERIAL_DRIVER_MY_NODE_HPP_
+
+#define READER_BUFFER_SIZE 64
+#define MAX_BUFFER_SIZE 2024
+#define DECODE_BUFFER_SIZE 512
+
+#include <rclcpp/rclcpp.hpp>
+#include <std_msgs/msg/string.hpp>
+#include <deque>
+
+#include "serial_driver/protocol.hpp"
+#include "serial_driver/crc.hpp"
+#include  "serialDriver.hpp"
+
+#include "auto_aim_interfaces/msg/gimbal_msg.hpp"
+#include "auto_aim_interfaces/msg/sentry_gimbal_msg.hpp"
+
+
+namespace serial_driver
+{
+
+class ReadNode : public rclcpp::Node
+{
+public:
+  ReadNode(const rclcpp::NodeOptions & options);
+
+private:
+  
+    
+    //function
+    PkgState decode();
+    int receive();
+    void classify(uint8_t* data);
+
+    std::shared_ptr<SerialConfig> config;
+    //  (2000000,8,false,StopBit::TWO,Parity::NONE);
+
+    std::shared_ptr<Port> port ;
+    // std::make_shared<Port>(config);
+
+    rclcpp::TimerBase::SharedPtr timer_;
+
+    std::deque<uint8_t> buffer;
+    uint8_t decodeBuffer[DECODE_BUFFER_SIZE];
+    uint8_t receiveBuffer[READER_BUFFER_SIZE];
+
+    //info
+    rclcpp::Publisher<auto_aim_interfaces::msg::GimbalMsg>::SharedPtr gimabal_msg_pub_;
+    rclcpp::Publisher<auto_aim_interfaces::msg::SentryGimbalMsg>::SharedPtr sentry_gimbal_msg_pub_;
+
+    void gimbalMsgCB(auto_aim_interfaces::msg::GimbalMsg::SharedPtr msg);
+    void sentryGimbalMsgCB(auto_aim_interfaces::msg::SentryGimbalMsg::SharedPtr msg);
+
+    //protocol 
+    Header header;
+
+    //debug info 
+    int error_sum_header = 0;
+    bool crc_ok          = false;
+    bool crc_ok_header   = false;
+    int  bag_sum         = 0;
+    int  error_sum_payload = 0;
+ 
+};
+
+}
+#endif  // SERIAL_DRIVER_MY_NODE_HPP_
