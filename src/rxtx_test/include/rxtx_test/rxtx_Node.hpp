@@ -10,24 +10,22 @@
 
 #include "msg_interfaces/msg/gimbal_msg.hpp"
 #include "msg_interfaces/msg/sentry_gimbal_msg.hpp"
-
+namespace serial_driver
+{
 class TestNode : public rclcpp :: Node
 {
 public:
     TestNode(const rclcpp::NodeOptions & options);
-    ~TestNode();
 
 private:
 
     void debug1(msg_interfaces::msg::GimbalMsg::SharedPtr msg);
 
     void debug2(msg_interfaces::msg::SentryGimbalMsg::SharedPtr msg);
-    // rclcpp::Publisher<acesserial_driver::TwoCRC_ChassisCommand>::SharedPtr chassis_cmd_;
-    // rclcpp::Publisher<serial_driver::TwoCRC_GimbalCommand>::SharedPtr gimbal_cmd_;
+  
     rclcpp::Subscription<msg_interfaces::msg::SentryGimbalMsg>::SharedPtr sentry_gimbal_msg_sub_;
     rclcpp::Subscription<msg_interfaces::msg::GimbalMsg>::SharedPtr gimbal_msg_sub_;
     
-    serial_driver::TwoCRC_GimbalCommand   twoCRC_GimbalCommand;
-    serial_driver::TwoCRC_ChassisCommand  twoCRC_ChassisCommand;  
 
 };
+}

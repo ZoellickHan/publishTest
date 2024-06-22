@@ -24,6 +24,7 @@ class ReadNode : public rclcpp::Node
 {
 public:
   ReadNode(const rclcpp::NodeOptions & options);
+  ~ReadNode();
 
 private:
   

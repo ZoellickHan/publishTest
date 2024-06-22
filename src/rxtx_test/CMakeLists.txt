@@ -21,12 +21,12 @@ ament_auto_find_build_dependencies()
 ###########
 
 ament_auto_add_library(${PROJECT_NAME} SHARED
-  DIRECTORY src
+  src/rxtx_Node.cpp
 )
 
 rclcpp_components_register_node(${PROJECT_NAME}
-  PLUGIN rxtx_test
-  EXECUTABLE rxtx_test_node
+  PLUGIN serial_driver::TestNode
+  EXECUTABLE test_node
 )
 
 #############

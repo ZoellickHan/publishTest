@@ -17,14 +17,13 @@
 namespace serial_driver
 {
 
-ReadNode::ReadNode(const rclcpp::NodeOptions & options) : rclcpp::Node("read", options)
+ReadNode::ReadNode(const rclcpp::NodeOptions & options) : rclcpp::Node("read_ch343", options)
 , config(std::make_shared<SerialConfig>(2000000,8,false,StopBit::TWO,Parity::NONE)), port(std::make_shared<Port>(config))
 {
-
+    RCLCPP_WARN(get_logger(),"Begin the Node read_ch343 !" );
     gimabal_msg_pub_ = this->create_publisher<msg_interfaces::msg::GimbalMsg>("/gimbal_msg", 10);
     sentry_gimbal_msg_pub_ = this->create_publisher<msg_interfaces::msg::SentryGimbalMsg>("/sentry_gimbal_msg", 10);
-    //create the publisher
-    // gimabal_msg_ = this->create_publisher<TwoCRC_GimbalMsg>("gimbal msg", 10);
+
     //open the port
     while(true)
     {
@@ -41,20 +40,18 @@ ReadNode::ReadNode(const rclcpp::NodeOptions & options) : rclcpp::Node("read", o
         }
     }
 
-    //receive 
-    receive();
-    //decode
-    decode();
+    while(true)
+    {
+        //receive 
+        receive();
+        //decode
+        decode();
+    }
 }
 
-// void ReadNode::gimbalMsgCB(auto_aim_interfaces::msg::GimbalMsg::SharedPtr msg){
-
-//     return;
-// }
-
-// void ReadNode::sentryGimbalMsgCB(auto_aim_interfaces::msg::SentryGimbalMsg::SharedPtr msg){
-//     return;
-// }
+ReadNode::~ReadNode(){
+    throw std::invalid_argument( "received negative value" );
+}
 
 PkgState ReadNode::decode()
 {
@@ -119,17 +116,45 @@ void ReadNode::classify(uint8_t* data)
     TwoCRC_SentryGimbalMsg twoCRC_SentryGimbalMsg;
     switch (header.protocolID)
     {
-    case CommunicationType::TWOCRC_GIMBAL_MSG :
-        twoCRC_GimbalMsg = arrayToStruct<TwoCRC_GimbalMsg>(data);
-        // gimabal_msg_ -> publish(twoCRC_GimbalMsg);
-        break;
-    
-    case CommunicationType::TWOCRC_SENTRY_GIMBAL_MSG :
-        twoCRC_SentryGimbalMsg = arrayToStruct<TwoCRC_SentryGimbalMsg>(data);
-        // sentry_gimbal_msg_ -> publish(twoCRC_SentryGimbalMsg);        
-        break;
-    default:
-        break;
+        case CommunicationType::TWOCRC_GIMBAL_MSG:
+        {
+            twoCRC_GimbalMsg = arrayToStruct<TwoCRC_GimbalMsg>(data);
+            msg_interfaces::msg::GimbalMsg gimbalmsg;
+            gimbalmsg.bullet_speed = twoCRC_GimbalMsg.bullet_speed;
+            gimbalmsg.cur_cv_mode  = twoCRC_GimbalMsg.cur_cv_mode;
+            gimbalmsg.q_w          = twoCRC_GimbalMsg.q_w;
+
+            gimbalmsg.q_x          = twoCRC_GimbalMsg.q_x;
+            gimbalmsg.q_y          = twoCRC_GimbalMsg.q_y;
+            gimbalmsg.q_z          = twoCRC_GimbalMsg.q_z;
+            gimabal_msg_pub_ -> publish(gimbalmsg);
+            break;
+        }
+        case CommunicationType::TWOCRC_SENTRY_GIMBAL_MSG:
+        {
+            twoCRC_SentryGimbalMsg = arrayToStruct<TwoCRC_SentryGimbalMsg>(data);
+            msg_interfaces::msg::SentryGimbalMsg sentryGimbalMsg;
+            sentryGimbalMsg.bullet_speed    = twoCRC_SentryGimbalMsg.bullet_speed;
+            sentryGimbalMsg.big_q_w         = twoCRC_SentryGimbalMsg.big_q_w;
+            sentryGimbalMsg.big_q_x         = twoCRC_SentryGimbalMsg.big_q_x; 
+            sentryGimbalMsg.big_q_y         = twoCRC_SentryGimbalMsg.big_q_y;
+            sentryGimbalMsg.big_q_z         = twoCRC_SentryGimbalMsg.big_q_z; 
+            sentryGimbalMsg.cur_cv_mode     = twoCRC_SentryGimbalMsg.cur_cv_mode; 
+            sentryGimbalMsg.small_q_w       = twoCRC_SentryGimbalMsg.small_q_w; 
+            sentryGimbalMsg.small_q_x       = twoCRC_SentryGimbalMsg.small_q_x; 
+            sentryGimbalMsg.small_q_y       = twoCRC_SentryGimbalMsg.small_q_y;
+            sentryGimbalMsg.small_q_z       = twoCRC_SentryGimbalMsg.small_q_z;
+            sentryGimbalMsg.target_color    = twoCRC_SentryGimbalMsg.target_color;
+
+            sentry_gimbal_msg_pub_ -> publish(sentryGimbalMsg);        
+            break;
+        }
+        default:
+        {
+            printf("type is not defined !\n");
+            break;
+        }
+
     }
 }
 
