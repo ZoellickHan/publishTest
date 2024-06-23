@@ -208,7 +208,8 @@ int ReadNode::receive()
 void ReadNode::GimbalCommand_CB(msg_interfaces::msg::GimbalCommand::SharedPtr msg)
 {
     TwoCRC_GimbalCommand twoCRC_GimbalCommand;
-    uint8_t buffer[sizeof( TwoCRC_GimbalCommand)];
+    uint8_t buffer[sizeof(TwoCRC_GimbalCommand)];
+    
     twoCRC_GimbalCommand.header.protocolID = CommunicationType::TWOCRC_GIMBAL_CMD;
     twoCRC_GimbalCommand.header.dataLen    = sizeof(TwoCRC_GimbalCommand) - sizeof(Header) - 2;
     twoCRC_GimbalCommand.shoot_mode        = msg->shoot_mode;
@@ -219,16 +220,24 @@ void ReadNode::GimbalCommand_CB(msg_interfaces::msg::GimbalCommand::SharedPtr ms
     crc16::Append_CRC16_Check_Sum(buffer,sizeof(Header));
     crc16::Append_CRC16_Check_Sum(buffer,sizeof(TwoCRC_GimbalCommand));
 
+    std::lock_guard<std::mutex> lockf(transmit_mutex);
+    transmit_buffer.insert(transmit_buffer.end(),buffer, buffer + sizeof(TwoCRC_GimbalCommand));
 
 }
 
 void ReadNode::ChassisCommand_CB(msg_interfaces::msg::ChassisCommand::SharedPtr msg)
 {
+    TwoCRC_ChassisCommand twoCRC_ChassisCommand;
+    uint8_t buffer[sizeof(TwoCRC_ChassisCommand)];
 
+
+    std::lock_guard<std::mutex> lockf(transmit_mutex);
+    transmit_buffer.insert(transmit_buffer.end(),sizeof(TwoCRC_GimbalCommand));
 }
 void ReadNode::SentryGimbalCommand_CB(msg_interfaces::msg::SentryGimbalCommand::SharedPtr msg)
 {
-
+    std::lock_guard<std::mutex> lockf(transmit_mutex);
+    transmit_buffer.insert(transmit_buffer.end(),sizeof(TwoCRC_GimbalCommand));
 }
 }//serial_driver
 
