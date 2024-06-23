@@ -4,6 +4,7 @@
 #define READER_BUFFER_SIZE 64
 #define MAX_BUFFER_SIZE 2024
 #define DECODE_BUFFER_SIZE 128
+#define TRANSMIT_BUFFER 64
 
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/string.hpp>
@@ -37,6 +38,7 @@ private:
     //function
     PkgState decode();
     int receive();
+    int transmit();
     void classify(uint8_t* data);
 
     void GimbalCommand_CB(msg_interfaces::msg::GimbalCommand::SharedPtr msg);
@@ -69,15 +71,16 @@ private:
     PkgState pkgState;
 
     //debug info 
-    int error_sum_header = 0;
-    bool crc_ok          = false;
-    bool crc_ok_header   = false;
-    int  pkg_sum         = 0;
-    int  error_sum_payload = 0;
-    int read_sum         = 0;
-    int state[5];
- 
-};
+    
+    bool crc_ok             = false;
+    bool crc_ok_header      = false;
+    int  error_sum_payload  = 0;
+    int  error_sum_header   = 0;
+    int  read_sum           = 0;
+    int  write_num          = 0;
+    int  pkg_sum            = 0;
+    int  state[5];
 
+};
 }
 #endif  // SERIAL_DRIVER_MY_NODE_HPP_

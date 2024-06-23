@@ -25,11 +25,11 @@ ReadNode::ReadNode(const rclcpp::NodeOptions & options) : rclcpp::Node("read_ch3
     gimabal_msg_pub_ = this->create_publisher<msg_interfaces::msg::GimbalMsg>("/gimbal_msg", 10);
     sentry_gimbal_msg_pub_ = this->create_publisher<msg_interfaces::msg::SentryGimbalMsg>("/sentry_gimbal_msg", 10);
     gimbal_command_sub_ = this->create_subscription<msg_interfaces::msg::GimbalCommand>("/gimbal_command",rclcpp::SensorDataQoS(),
-    std::bind(&ReadNode::GimbalCommand_CB,this));
+    std::bind(&ReadNode::GimbalCommand_CB,this,std::placeholders::_1));
     chassis_command_sub_ = this->create_subscription<msg_interfaces::msg::ChassisCommand>("/chassis_command",rclcpp::SensorDataQoS(),
-    std::bind(&ReadNode::ChassisCommand_CB,this));
+    std::bind(&ReadNode::ChassisCommand_CB,this,std::placeholders::_1));
     sentry_gimbal_command_sub_ = this->create_subscription<msg_interfaces::msg::SentryGimbalCommand>("/sentry_gimbal_command",rclcpp::SensorDataQoS(),
-    std::bind(&ReadNode::SentryGimbalCommand_CB,this));
+    std::bind(&ReadNode::SentryGimbalCommand_CB,this,std::placeholders::_1));
 
     //open the port
     while(true)
@@ -51,7 +51,7 @@ ReadNode::ReadNode(const rclcpp::NodeOptions & options) : rclcpp::Node("read_ch3
         //decode
         // printf("size:");
         pkgState = PkgState::COMPLETE;
-        while(buffer.size() > 0 &&  pkgState != PkgState::HEADER_INCOMPLETE && pkgState != PkgState::PAYLOAD_INCOMPLETE)
+        while(receive_buffer.size() > 0 &&  pkgState != PkgState::HEADER_INCOMPLETE && pkgState != PkgState::PAYLOAD_INCOMPLETE)
         {
             pkgState = decode();
             switch (pkgState)
@@ -196,7 +196,7 @@ int ReadNode::receive()
 
     if(read_num >= 0)
     {
-        buffer.insert(buffer.end(),receiveBuffer,receiveBuffer + read_num);
+        receive_buffer.insert(receive_buffer.end(),receiveBuffer,receiveBuffer + read_num);
     }
     else
     { 
@@ -209,7 +209,7 @@ void ReadNode::GimbalCommand_CB(msg_interfaces::msg::GimbalCommand::SharedPtr ms
 {
     TwoCRC_GimbalCommand twoCRC_GimbalCommand;
     uint8_t buffer[sizeof(TwoCRC_GimbalCommand)];
-    
+
     twoCRC_GimbalCommand.header.protocolID = CommunicationType::TWOCRC_GIMBAL_CMD;
     twoCRC_GimbalCommand.header.dataLen    = sizeof(TwoCRC_GimbalCommand) - sizeof(Header) - 2;
     twoCRC_GimbalCommand.shoot_mode        = msg->shoot_mode;
@@ -230,16 +230,58 @@ void ReadNode::ChassisCommand_CB(msg_interfaces::msg::ChassisCommand::SharedPtr 
     TwoCRC_ChassisCommand twoCRC_ChassisCommand;
     uint8_t buffer[sizeof(TwoCRC_ChassisCommand)];
 
+    twoCRC_ChassisCommand.header.protocolID = serial_driver::CommunicationType::TWOCRC_CHASSIS_CMD;
+    twoCRC_ChassisCommand.header.dataLen    = sizeof(TwoCRC_ChassisCommand) - sizeof(Header) - 2;
+    twoCRC_ChassisCommand.vel_w             = msg->vel_w;
+    twoCRC_ChassisCommand.vel_x             = msg->vel_x;
+    twoCRC_ChassisCommand.vel_y             = msg->vel_y;
+
+    serial_driver::structToArray(twoCRC_ChassisCommand,buffer);
+    crc16::Append_CRC16_Check_Sum(buffer,sizeof(Header));
+    crc16::Append_CRC16_Check_Sum(buffer,sizeof(TwoCRC_ChassisCommand));
 
     std::lock_guard<std::mutex> lockf(transmit_mutex);
-    transmit_buffer.insert(transmit_buffer.end(),sizeof(TwoCRC_GimbalCommand));
+    transmit_buffer.insert(transmit_buffer.end(),buffer,buffer+sizeof(TwoCRC_ChassisCommand));
 }
+
 void ReadNode::SentryGimbalCommand_CB(msg_interfaces::msg::SentryGimbalCommand::SharedPtr msg)
 {
-    std::lock_guard<std::mutex> lockf(transmit_mutex);
-    transmit_buffer.insert(transmit_buffer.end(),sizeof(TwoCRC_GimbalCommand));
-}
-}//serial_driver
+    TwoCRC_SentryGimbalCommand twoCRC_SentryGimbalCommand;
+    uint8_t buffer[sizeof(TwoCRC_SentryGimbalCommand)];
 
+    twoCRC_SentryGimbalCommand.header.protocolID = serial_driver::CommunicationType::TWOCRC_SENTRY_GIMBAL_CMD;
+    twoCRC_SentryGimbalCommand.header.dataLen    = sizeof(TwoCRC_SentryGimbalCommand) - sizeof(Header) - 2;
+    twoCRC_SentryGimbalCommand.l_shoot_mode      = msg->l_shoot_mode;
+    twoCRC_SentryGimbalCommand.l_target_pitch    = msg->l_target_pitch;
+    twoCRC_SentryGimbalCommand.l_target_yaw      = msg->l_target_yaw;
+    twoCRC_SentryGimbalCommand.r_shoot_mode      = msg->r_shoot_mode;
+    twoCRC_SentryGimbalCommand.r_target_pitch    = msg->r_target_pitch;
+    twoCRC_SentryGimbalCommand.r_target_yaw      = msg->r_target_yaw;
+    twoCRC_SentryGimbalCommand.main_target_pitch = msg->main_target_pitch;
+    twoCRC_SentryGimbalCommand.main_target_yaw   = msg->main_target_yaw;
+
+    serial_driver::structToArray(twoCRC_SentryGimbalCommand,buffer);
+    crc16::Append_CRC16_Check_Sum(buffer,sizeof(Header));
+    crc16::Append_CRC16_Check_Sum(buffer,sizeof(TwoCRC_SentryGimbalCommand));
+
+    std::lock_guard<std::mutex> lockf(transmit_mutex);
+    transmit_buffer.insert(transmit_buffer.end(),buffer,buffer+sizeof(TwoCRC_SentryGimbalCommand));
+}
+
+int ReadNode::transmit()
+{
+    uint8_t buffer[TRANSMIT_BUFFER];
+    int size = transmit_buffer.size();
+    for(int i = size; i < TRANSMIT_BUFFER; i -= TRANSMIT_BUFFER)
+    {
+        std::copy(transmit_buffer.begin(),transmit_buffer.begin()+TRANSMIT_BUFFER,buffer);
+        transmit_buffer.erase(transmit_buffer.begin(),transmit_buffer.begin() + TRANSMIT_BUFFER);
+        write_num = write(port->fd,buffer,TRANSMIT_BUFFER);
+        if(write_num < 0)
+            RCLCPP_ERROR(get_logger(),"Can not transmit");
+    }
+}
+
+}//serial_driver
 #include "rclcpp_components/register_node_macro.hpp"
 RCLCPP_COMPONENTS_REGISTER_NODE(serial_driver::ReadNode)
