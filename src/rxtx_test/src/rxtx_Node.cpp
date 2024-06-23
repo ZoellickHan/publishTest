@@ -18,12 +18,22 @@ TestNode::TestNode(const rclcpp::NodeOptions & options) : rclcpp::Node("rxtx_tes
     sentry_gimbal_command_pub_ = this->create_publisher<msg_interfaces::msg::SentryGimbalCommand>( "/sentry_gimbal_command",10);
 
     RCLCPP_WARN(get_logger(),"Test Node");
+    msg_interfaces::msg::SentryGimbalCommand sentryGimbalCommand;
+    msg_interfaces::msg::ChassisCommand chassisCommand;
+    msg_interfaces::msg::GimbalCommand gimbalCommand;
 
-    serial_driver::TwoCRC_GimbalCommand TwoCRC_GimbalCommand;
-
-    while(true)
+    for(int i = 0; 1 == 1; i++)
     {
-        
+        sentryGimbalCommand.l_shoot_mode = i % 99;
+        sentryGimbalCommand.r_shoot_mode = 100 - i%99;
+        sentryGimbalCommand.r_target_pitch = 0.4;
+        sentryGimbalCommand.r_target_yaw   = 0.4;
+        sentryGimbalCommand.l_target_pitch = 0.6;
+        sentryGimbalCommand.l_target_yaw   = 0.6;
+
+        sentry_gimbal_command_pub_->publish(sentryGimbalCommand);
+        gimbal_command_pub_ -> publish(gimbalCommand);
+        chassis_command_pub_ -> publish(chassisCommand);
     }
 }
 
