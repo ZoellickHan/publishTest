@@ -23,9 +23,10 @@ public:
 private:
 
     void debug1(msg_interfaces::msg::GimbalMsg::SharedPtr msg);
-
     void debug2(msg_interfaces::msg::SentryGimbalMsg::SharedPtr msg);
-  
+    void pub();
+
+    rclcpp::TimerBase::SharedPtr timer_;
     rclcpp::Subscription<msg_interfaces::msg::SentryGimbalMsg>::SharedPtr sentry_gimbal_msg_sub_;
     rclcpp::Subscription<msg_interfaces::msg::GimbalMsg>::SharedPtr gimbal_msg_sub_;
 
@@ -33,6 +34,7 @@ private:
     rclcpp::Publisher<msg_interfaces::msg::ChassisCommand>::SharedPtr chassis_command_pub_;
     rclcpp::Publisher<msg_interfaces::msg::SentryGimbalCommand>::SharedPtr sentry_gimbal_command_pub_;
     int pkg_sum = 0;
+    std::thread pub_thread;
 
 };
 }

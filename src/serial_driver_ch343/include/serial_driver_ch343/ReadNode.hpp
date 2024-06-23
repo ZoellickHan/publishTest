@@ -4,7 +4,7 @@
 #define READER_BUFFER_SIZE 64
 #define MAX_BUFFER_SIZE 2024
 #define DECODE_BUFFER_SIZE 128
-#define TRANSMIT_BUFFER 64
+#define TRANSMIT_BUFFER 128
 
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/string.hpp>
@@ -44,14 +44,12 @@ private:
     void GimbalCommand_CB(msg_interfaces::msg::GimbalCommand::SharedPtr msg);
     void ChassisCommand_CB(msg_interfaces::msg::ChassisCommand::SharedPtr msg);
     void SentryGimbalCommand_CB(msg_interfaces::msg::SentryGimbalCommand::SharedPtr msg);
-
+    void rx();
     std::shared_ptr<SerialConfig> config;
     //  (2000000,8,false,StopBit::TWO,Parity::NONE);
 
     std::shared_ptr<Port> port ;
     // std::make_shared<Port>(config);
-
-    rclcpp::TimerBase::SharedPtr timer_;
 
     std::deque<uint8_t> receive_buffer;
     std::deque<uint8_t> transmit_buffer;
@@ -59,16 +57,19 @@ private:
     uint8_t receiveBuffer[READER_BUFFER_SIZE];
     std::mutex transmit_mutex;
     std::thread tx_thread;
+    std::thread rx_thread;
 
     //info
     rclcpp::Publisher<msg_interfaces::msg::GimbalMsg>::SharedPtr gimabal_msg_pub_;
     rclcpp::Publisher<msg_interfaces::msg::SentryGimbalMsg>::SharedPtr sentry_gimbal_msg_pub_;
+
     rclcpp::Subscription<msg_interfaces::msg::GimbalCommand>::SharedPtr gimbal_command_sub_;
     rclcpp::Subscription<msg_interfaces::msg::ChassisCommand>::SharedPtr chassis_command_sub_;
     rclcpp::Subscription<msg_interfaces::msg::SentryGimbalCommand>::SharedPtr sentry_gimbal_command_sub_;
-
+    rclcpp::TimerBase::SharedPtr timer1_;
+    rclcpp::TimerBase::SharedPtr timer2_;
     //protocol 
-    Header header;
+    Header   header;
     PkgState pkgState;
 
     //debug info 
@@ -81,7 +82,6 @@ private:
     int  write_num          = 0;
     int  pkg_sum            = 0;
     int  state[5];
-
 };
 }
 #endif  // SERIAL_DRIVER_MY_NODE_HPP_

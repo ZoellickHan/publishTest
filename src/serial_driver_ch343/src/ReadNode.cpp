@@ -1,19 +1,5 @@
 #include "serial_driver_ch343/ReadNode.hpp"
 
-
-/**
- * TODO:
- *  do not want to work......
- * 
- *  1. can receive() and decode() in one thread ?
- *  1.1 if not, is it safe for anonther thread to run the decode()?
- *
- *  2. can decode() and publish in one thread ?
- *  2.1 if not, is it safe for anonther thread to run the publish?
- *  
- *  3. can all data transmit from ch343 to the destinantion node without error and drop ?
- */
-
 namespace serial_driver
 {
 
@@ -21,21 +7,22 @@ ReadNode::ReadNode(const rclcpp::NodeOptions & options) : rclcpp::Node("read_ch3
 , config(std::make_shared<SerialConfig>(2000000,8,false,StopBit::TWO,Parity::NONE)), port(std::make_shared<Port>(config))
 {
     RCLCPP_WARN(get_logger(),"Begin the Node read_ch343 !" );
+    
+    std::cout << "Creating ROS subscriptions...\n";
 
-    gimabal_msg_pub_ = this->create_publisher<msg_interfaces::msg::GimbalMsg>("/gimbal_msg", 10);
-
-    sentry_gimbal_msg_pub_ = this->create_publisher<msg_interfaces::msg::SentryGimbalMsg>("/sentry_gimbal_msg", 10);
-
-    gimbal_command_sub_ = this->create_subscription<msg_interfaces::msg::GimbalCommand>("/gimbal_commmand",rclcpp::SensorDataQoS(),
+    gimbal_command_sub_ = this->create_subscription<msg_interfaces::msg::GimbalCommand>("/gimbal_command", rclcpp::SensorDataQoS(),
     std::bind(&ReadNode::GimbalCommand_CB,this,std::placeholders::_1));
-
-    chassis_command_sub_ = this->create_subscription<msg_interfaces::msg::ChassisCommand>("/chassis_command",rclcpp::SensorDataQoS(),
+    
+    chassis_command_sub_ = this->create_subscription<msg_interfaces::msg::ChassisCommand>("/chassis_command", rclcpp::SensorDataQoS(),
     std::bind(&ReadNode::ChassisCommand_CB,this,std::placeholders::_1));
 
-    sentry_gimbal_command_sub_ = this->create_subscription<msg_interfaces::msg::SentryGimbalCommand>("/sentry_gimbal_command",rclcpp::SensorDataQoS(),
+    sentry_gimbal_command_sub_ = this->create_subscription<msg_interfaces::msg::SentryGimbalCommand>("/sentry_gimbal_command", rclcpp::SensorDataQoS(),
     std::bind(&ReadNode::SentryGimbalCommand_CB,this,std::placeholders::_1));
+    std::cout << "Creating ROS publisher...\n";
 
-    //open the port
+    gimabal_msg_pub_ = this->create_publisher<msg_interfaces::msg::GimbalMsg>("/gimbal_msg", 10);
+    sentry_gimbal_msg_pub_ = this->create_publisher<msg_interfaces::msg::SentryGimbalMsg>("/sentry_gimbal_msg", 10);
+
     while(true)
     {
       if(port->isPortOpen())
@@ -48,46 +35,50 @@ ReadNode::ReadNode(const rclcpp::NodeOptions & options) : rclcpp::Node("read_ch3
       }
     }
 
-    tx_thread = std::thread(&ReadNode::transmit,this);
+    timer1_ = this->create_wall_timer(std::chrono::milliseconds(1), std::bind(&ReadNode::transmit,this));
+    // timer2_ = this->create_wall_timer(std::chrono::milliseconds(1), std::bind(&ReadNode::rx,this));
+    rx_thread = std::thread(&ReadNode::rx,this);
+}
 
-    while(true)
+void ReadNode::rx()
+{
+    while(true){ 
+    receive();
+    pkgState = PkgState::COMPLETE;
+    while(receive_buffer.size() > 0 &&  pkgState != PkgState::HEADER_INCOMPLETE && pkgState != PkgState::PAYLOAD_INCOMPLETE)
     {
-        receive();
-
-        pkgState = PkgState::COMPLETE;
-        while(receive_buffer.size() > 0 &&  pkgState != PkgState::HEADER_INCOMPLETE && pkgState != PkgState::PAYLOAD_INCOMPLETE)
+        pkgState = decode();
+        switch (pkgState)
         {
-            pkgState = decode();
-            switch (pkgState)
-            {
-            case PkgState::COMPLETE :
-                    state[0] ++ ;
-                    break;
-            
-            case PkgState::CRC_HEADER_ERRROR :
-                    state[3] ++ ;
-                    break;
-
-                case PkgState::CRC_PKG_ERROR :
-                    state[4] ++;
-                    break;
-
-                case PkgState::HEADER_INCOMPLETE :
-                    state[1] ++;
-                    break;
-
-                case PkgState::PAYLOAD_INCOMPLETE :
-                    state[2] ++;
-                    break;
-
-            default:
+        case PkgState::COMPLETE :
+                state[0] ++ ;
                 break;
-            }
-        }  
+        
+        case PkgState::CRC_HEADER_ERRROR :
+                state[3] ++ ;
+                break;
+
+            case PkgState::CRC_PKG_ERROR :
+                state[4] ++;
+                break;
+
+            case PkgState::HEADER_INCOMPLETE :
+                state[1] ++;
+                break;
+
+            case PkgState::PAYLOAD_INCOMPLETE :
+                state[2] ++;
+                break;
+
+        default:
+            break;
+        }
+    }  
     }
 }
 
-ReadNode::~ReadNode(){
+ReadNode::~ReadNode()
+{
     throw std::invalid_argument( "received negative value" );
 }
 
@@ -136,8 +127,8 @@ PkgState ReadNode::decode()
             std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
             std::chrono::duration<double> time = end - start;
            
-            // printf("crc error rate : %f pkg sum rate: %f ,read_sum reate: %f time : %f \n",
-            // float(error_sum_header + error_sum_payload)/float(pkg_sum),double(pkg_sum)/time.count(),float(read_sum)*11/time.count(),time.count());
+            printf("crc error rate : %f pkg sum rate: %f ,read_sum reate: %f time : %f \n",
+            float(error_sum_header + error_sum_payload)/float(pkg_sum),double(pkg_sum)/time.count(),float(read_sum)*11/time.count(),time.count());
             classify(decodeBuffer); 
             return PkgState::COMPLETE;
         }
@@ -211,7 +202,7 @@ int ReadNode::receive()
 
 void ReadNode::GimbalCommand_CB(msg_interfaces::msg::GimbalCommand::SharedPtr msg)
 {
-    RCLCPP_WARN(get_logger(),"Begin GimbalCommand Callback");
+    RCLCPP_WARN(get_logger(),"Begin GimbalCommand Callback !!!!");
     TwoCRC_GimbalCommand twoCRC_GimbalCommand;
     uint8_t buffer[sizeof(TwoCRC_GimbalCommand)];
 
@@ -227,7 +218,6 @@ void ReadNode::GimbalCommand_CB(msg_interfaces::msg::GimbalCommand::SharedPtr ms
 
     std::lock_guard<std::mutex> lockf(transmit_mutex);
     transmit_buffer.insert(transmit_buffer.end(),buffer, buffer + sizeof(TwoCRC_GimbalCommand));
-
 }
 
 void ReadNode::ChassisCommand_CB(msg_interfaces::msg::ChassisCommand::SharedPtr msg)
@@ -279,22 +269,27 @@ void ReadNode::SentryGimbalCommand_CB(msg_interfaces::msg::SentryGimbalCommand::
 int ReadNode::transmit()
 {
     uint8_t buffer[TRANSMIT_BUFFER];
-    while(true)
+
+    long size = transmit_buffer.size();
+    printf("transmitsize : %d \n",size);
+
+    if(size > TRANSMIT_BUFFER)
     {
-        int size = transmit_buffer.size();
-        printf("transmitsize : %d \n",size);
-        if(size > TRANSMIT_BUFFER)
+        while(size > 2*TRANSMIT_BUFFER && transmit_buffer.size() > 0)
         {
-            for(int i = size; i < 2*TRANSMIT_BUFFER; i -= TRANSMIT_BUFFER)
-            {
-                std::copy(transmit_buffer.begin(),transmit_buffer.begin()+TRANSMIT_BUFFER,buffer);
-                transmit_buffer.erase(transmit_buffer.begin(),transmit_buffer.begin() + TRANSMIT_BUFFER);
-                write_num = write(port->fd,buffer,TRANSMIT_BUFFER);
-                if(write_num < 0)
-                    RCLCPP_ERROR(get_logger(),"Can not transmit");
-            }
+            size -= TRANSMIT_BUFFER;
+            printf("size : %ld \n",size);
+            std::lock_guard<std::mutex> lockf(transmit_mutex);
+            std::copy(transmit_buffer.begin(),transmit_buffer.begin()+TRANSMIT_BUFFER,buffer);
+            transmit_buffer.erase(transmit_buffer.begin(),transmit_buffer.begin() + TRANSMIT_BUFFER);
+
+            write_num = write(port->fd,buffer,TRANSMIT_BUFFER);
+
+            if(write_num < 0)
+                RCLCPP_ERROR(get_logger(),"Can not transmit");
         }
     }
+    
 }
 
 }//serial_driver
