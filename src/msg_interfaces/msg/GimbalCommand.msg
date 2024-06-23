@@ -1,0 +1,3 @@
+float32 target_pitch
+float32 target_yaw
+uint8 shoot_mode

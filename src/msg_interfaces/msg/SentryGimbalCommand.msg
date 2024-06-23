@@ -1,0 +1,8 @@
+float32 l_target_pitch
+float32 l_target_yaw
+uint8 l_shoot_mode
+float32 r_target_pitch
+float32 r_target_yaw
+uint8 r_shoot_mode
+float32 main_target_pitch
+float32 main_target_yaw
