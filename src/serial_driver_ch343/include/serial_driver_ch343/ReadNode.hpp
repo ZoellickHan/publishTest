@@ -31,7 +31,6 @@ class ReadNode : public rclcpp::Node
 {
 public:
   ReadNode(const rclcpp::NodeOptions & options);
-  ~ReadNode();
   std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
 
 private:    
@@ -40,7 +39,7 @@ private:
     int receive();
     int transmit();
     void classify(uint8_t* data);
-
+    void eraser();
     void GimbalCommand_CB(msg_interfaces::msg::GimbalCommand::SharedPtr msg);
     void ChassisCommand_CB(msg_interfaces::msg::ChassisCommand::SharedPtr msg);
     void SentryGimbalCommand_CB(msg_interfaces::msg::SentryGimbalCommand::SharedPtr msg);

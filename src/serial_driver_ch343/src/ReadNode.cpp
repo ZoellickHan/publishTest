@@ -35,7 +35,7 @@ ReadNode::ReadNode(const rclcpp::NodeOptions & options) : rclcpp::Node("read_ch3
       }
     }
 
-    timer1_ = this->create_wall_timer(std::chrono::milliseconds(1), std::bind(&ReadNode::transmit,this));
+    // timer1_ = this->create_wall_timer(std::chrono::milliseconds(1), std::bind(&ReadNode::transmit,this));
     // timer2_ = this->create_wall_timer(std::chrono::milliseconds(1), std::bind(&ReadNode::rx,this));
     rx_thread = std::thread(&ReadNode::rx,this);
 }
@@ -47,6 +47,7 @@ void ReadNode::rx()
     pkgState = PkgState::COMPLETE;
     while(receive_buffer.size() > 0 &&  pkgState != PkgState::HEADER_INCOMPLETE && pkgState != PkgState::PAYLOAD_INCOMPLETE)
     {
+        // eraser();
         pkgState = decode();
         switch (pkgState)
         {
@@ -77,51 +78,73 @@ void ReadNode::rx()
     }
 }
 
-ReadNode::~ReadNode()
-{
-    throw std::invalid_argument( "received negative value" );
-}
-
 PkgState ReadNode::decode()
 {    
     int size = receive_buffer.size();
-    if( size < sizeof(Header) )
-        return PkgState::HEADER_INCOMPLETE;
+    // printf("size: %d \n",size);        
 
     for(int i = 0; i < size; i++)
     {
         if(receive_buffer[i] == 0xAA)
         {
+            if( i + sizeof(Header) > size)
+            {
+                printf("PkgState::HEADER_INCOMPLETE\n");
+                return PkgState::HEADER_INCOMPLETE;
+            }
             std::copy(receive_buffer.begin() + i, receive_buffer.begin()+ i + sizeof(Header), decodeBuffer);
             crc_ok_header = crc16::Verify_CRC16_Check_Sum(decodeBuffer, sizeof(Header));
 
             if( !crc_ok_header )
             {
                 error_sum_header ++;
-                receive_buffer.erase(receive_buffer.begin() + i, receive_buffer.begin() + i + sizeof(Header));
+
+                try{
+                    receive_buffer.erase(receive_buffer.begin() + i, receive_buffer.begin() + i + sizeof(Header));
+                }catch(const std::exception & ex){
+                    RCLCPP_ERROR(get_logger(), "Error creating serial port:  %s", ex.what());
+                    printf("awful erase\n");
+                }
+                
+                printf("PkgState::CRC_HEADER_ERRROR\n");
                 return PkgState::CRC_HEADER_ERRROR;
             }
-
+           
             this->header = arrayToStruct<Header>(decodeBuffer);
-
+             
             // pkg length = payload(dataLen) + header len (include header crc) + 2crc 
-            if( i + (header.dataLen + sizeof(Header) + 2) > size )
+            if( i + header.dataLen + sizeof(Header) + 2 > size )
             {
+               
                 // pkg_sum ++;
+                printf("PkgState::PAYLOAD_INCOMPLETE\n");
                 return PkgState::PAYLOAD_INCOMPLETE;
             }
-
+            
             std::copy(receive_buffer.begin() + i ,receive_buffer.begin() + i + header.dataLen + sizeof(Header) + 2, decodeBuffer);
             crc_ok = crc16::Verify_CRC16_Check_Sum(decodeBuffer,header.dataLen + sizeof(Header) + 2);
 
             if(!crc_ok)
             {
                 error_sum_payload ++;
-                receive_buffer.erase(receive_buffer.begin(), receive_buffer.begin() + i + header.dataLen + sizeof(Header) + 2);
+                try{
+                    receive_buffer.erase(receive_buffer.begin(), receive_buffer.begin() + i + header.dataLen + sizeof(Header) + 2);
+                }catch(const std::exception & ex){
+                    RCLCPP_ERROR(get_logger(), "Error creating serial port:  %s", ex.what());
+                    printf("awful 2\n");
+                }
+                
+                printf("PkgState::CRC_PKG_ERROR\n");
                 return PkgState::CRC_PKG_ERROR;
             }
             
-            receive_buffer.erase(receive_buffer.begin(), receive_buffer.begin() + i + header.dataLen + sizeof(Header) + 2);
+            try{
+                receive_buffer.erase(receive_buffer.begin(), receive_buffer.begin() + i + header.dataLen + sizeof(Header) + 2);
+            }catch(const std::exception & ex){
+                RCLCPP_ERROR(get_logger(), "Error creating serial port:  %s", ex.what());
+                printf("awful 3 \n");
+            }
+            
             pkg_sum ++;
 
             std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
@@ -129,7 +152,8 @@ PkgState ReadNode::decode()
            
             printf("crc error rate : %f pkg sum rate: %f ,read_sum reate: %f time : %f \n",
             float(error_sum_header + error_sum_payload)/float(pkg_sum),double(pkg_sum)/time.count(),float(read_sum)*11/time.count(),time.count());
-            classify(decodeBuffer); 
+            // classify(decodeBuffer); 
+            printf("PkgState::COMPLETE\n");
             return PkgState::COMPLETE;
         }
     }
@@ -183,13 +207,14 @@ void ReadNode::classify(uint8_t* data)
     }
 }
 
-int ReadNode::receive()
+int ReadNode::receive() // ok ~
 {
     int read_num = 0;
+
     read_num = read(port->fd,receiveBuffer,64);
     read_sum += read_num;
 
-    if(read_num >= 0)
+    if(read_num > 0)
     {
         receive_buffer.insert(receive_buffer.end(),receiveBuffer,receiveBuffer + read_num);
     }
@@ -200,9 +225,19 @@ int ReadNode::receive()
     return read_num;
 }
 
+void ReadNode::eraser()
+{
+//     std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
+//     std::chrono::duration<double> time = end - start;
+//     printf("crc error rate : %f pkg sum rate: %f ,read_sum reate: %f time : %f \n",
+//     float(error_sum_header + error_sum_payload)/float(pkg_sum),double(pkg_sum)/time.count(),float(read_sum)*11/time.count(),time.count());
+           
+//     receive_buffer.erase(receive_buffer.begin(),receive_buffer.end());
+}
+
 void ReadNode::GimbalCommand_CB(msg_interfaces::msg::GimbalCommand::SharedPtr msg)
 {
-    RCLCPP_WARN(get_logger(),"Begin GimbalCommand Callback !!!!");
+    // RCLCPP_WARN(get_logger(),"Begin GimbalCommand Callback !!!!");
     TwoCRC_GimbalCommand twoCRC_GimbalCommand;
     uint8_t buffer[sizeof(TwoCRC_GimbalCommand)];
 
@@ -222,7 +257,7 @@ void ReadNode::GimbalCommand_CB(msg_interfaces::msg::GimbalCommand::SharedPtr ms
 
 void ReadNode::ChassisCommand_CB(msg_interfaces::msg::ChassisCommand::SharedPtr msg)
 {
-    RCLCPP_WARN(get_logger(),"Begin ChassisCommand Callback");
+    // RCLCPP_WARN(get_logger(),"Begin ChassisCommand Callback");
     TwoCRC_ChassisCommand twoCRC_ChassisCommand;
     uint8_t buffer[sizeof(TwoCRC_ChassisCommand)];
 
@@ -242,7 +277,7 @@ void ReadNode::ChassisCommand_CB(msg_interfaces::msg::ChassisCommand::SharedPtr 
 
 void ReadNode::SentryGimbalCommand_CB(msg_interfaces::msg::SentryGimbalCommand::SharedPtr msg)
 {
-    RCLCPP_WARN(get_logger(),"Begin SentryGimbalCommand Callback");
+    // RCLCPP_WARN(get_logger(),"Begin SentryGimbalCommand Callback");
 
     TwoCRC_SentryGimbalCommand twoCRC_SentryGimbalCommand;
     uint8_t buffer[sizeof(TwoCRC_SentryGimbalCommand)];
@@ -271,14 +306,14 @@ int ReadNode::transmit()
     uint8_t buffer[TRANSMIT_BUFFER];
 
     long size = transmit_buffer.size();
-    printf("transmitsize : %d \n",size);
+    // printf("transmitsize : %d \n",size);
 
     if(size > TRANSMIT_BUFFER)
     {
         while(size > 2*TRANSMIT_BUFFER && transmit_buffer.size() > 0)
         {
             size -= TRANSMIT_BUFFER;
-            printf("size : %ld \n",size);
+            // printf("size : %ld \n",size);
             std::lock_guard<std::mutex> lockf(transmit_mutex);
             std::copy(transmit_buffer.begin(),transmit_buffer.begin()+TRANSMIT_BUFFER,buffer);
             transmit_buffer.erase(transmit_buffer.begin(),transmit_buffer.begin() + TRANSMIT_BUFFER);
