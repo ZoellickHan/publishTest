@@ -4,6 +4,7 @@
 
 namespace serial_driver
 {
+
 TestNode::TestNode(const rclcpp::NodeOptions & options) : rclcpp::Node("rxtx_test_node", options)
 {
     gimbal_msg_sub_ = this->create_subscription<msg_interfaces::msg::GimbalMsg>( "/gimbal_msg", rclcpp::SensorDataQoS(),
@@ -13,8 +14,6 @@ TestNode::TestNode(const rclcpp::NodeOptions & options) : rclcpp::Node("rxtx_tes
     std::bind(&TestNode::debug2,this, std::placeholders::_1));
 
     RCLCPP_WARN(get_logger(),"Test Node");
-    
-
 }
 
 void TestNode::debug1(msg_interfaces::msg::GimbalMsg::SharedPtr msg) 
@@ -31,7 +30,7 @@ void TestNode::debug1(msg_interfaces::msg::GimbalMsg::SharedPtr msg)
 
 void TestNode::debug2( msg_interfaces::msg::SentryGimbalMsg::SharedPtr msg) 
 {
-    bag_sum ++;
+    this->bag_sum ++;
     std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> time = end - start;
     RCLCPP_WARN(get_logger(),"bagsum = %d , bag rate : %f ,time :%f ,gimbal msg bullet speed = %f \n",

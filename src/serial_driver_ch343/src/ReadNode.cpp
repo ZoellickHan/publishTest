@@ -37,12 +37,50 @@ ReadNode::ReadNode(const rclcpp::NodeOptions & options) : rclcpp::Node("read_ch3
       }
     }
 
+    // read_thread = std::thread(&ReadNode::receive,this);
+    // decode_thread = std::thread(&ReadNode::decode,this);
     while(true)
     {
         //receive 
         receive();
         //decode
-        decode();
+        // printf("size:");
+        pkgState = PkgState::COMPLETE;
+        while(buffer.size() > 0 &&  pkgState != PkgState::HEADER_INCOMPLETE && pkgState != PkgState::PAYLOAD_INCOMPLETE)
+        {
+            pkgState = decode();
+            switch (pkgState)
+            {
+            case PkgState::COMPLETE :
+                    state[0] ++ ;
+                    break;
+            
+            case PkgState::CRC_HEADER_ERRROR :
+                    state[3] ++ ;
+                    break;
+
+                case PkgState::CRC_PKG_ERROR :
+                    state[4] ++;
+                    break;
+
+                case PkgState::HEADER_INCOMPLETE :
+                    state[1] ++;
+                    break;
+
+                case PkgState::PAYLOAD_INCOMPLETE :
+                    state[2] ++;
+                    break;
+
+            default:
+                break;
+            }
+            // std::cout<<std::endl;
+            // for(int i = 0; i < 5 ;i++)
+            // {
+            //     printf(" state[%d], %d ", i, state[i]);
+            // }
+            // std::cout<<std::endl;
+        }  
     }
 }
 
@@ -51,10 +89,8 @@ ReadNode::~ReadNode(){
 }
 
 PkgState ReadNode::decode()
-{
-    
+{    
     int size = buffer.size();
-
     if( size < sizeof(Header) )
         return PkgState::HEADER_INCOMPLETE;
 
@@ -63,48 +99,43 @@ PkgState ReadNode::decode()
         if(buffer[i] == 0xAA)
         {
             std::copy(buffer.begin() + i, buffer.begin()+ i + sizeof(Header), decodeBuffer);
-            crc_ok_header = crc16::Verify_CRC16_Check_Sum(decodeBuffer, sizeof(Header) );
+            crc_ok_header = crc16::Verify_CRC16_Check_Sum(decodeBuffer, sizeof(Header));
 
             if( !crc_ok_header )
             {
                 error_sum_header ++;
                 buffer.erase(buffer.begin() + i, buffer.begin() + i + sizeof(Header));
-                memset(decodeBuffer,0x00,sizeof(decodeBuffer));
                 return PkgState::CRC_HEADER_ERRROR;
             }
 
             this->header = arrayToStruct<Header>(decodeBuffer);
-            memset(decodeBuffer,0x00,sizeof(decodeBuffer));
 
             // pkg length = payload(dataLen) + header len (include header crc) + 2crc 
             if( i + (header.dataLen + sizeof(Header) + 2) > size )
             {
-                bag_sum ++;
+                // pkg_sum ++;
                 return PkgState::PAYLOAD_INCOMPLETE;
             }
 
             std::copy(buffer.begin() + i ,buffer.begin() + i + header.dataLen + sizeof(Header) + 2, decodeBuffer);
             crc_ok = crc16::Verify_CRC16_Check_Sum(decodeBuffer,header.dataLen + sizeof(Header) + 2);
-            printf("crc ok : %d \n",crc_ok);
 
             if(!crc_ok)
             {
                 error_sum_payload ++;
-                memset(decodeBuffer,0x00,sizeof(decodeBuffer));
                 buffer.erase(buffer.begin(), buffer.begin() + i + header.dataLen + sizeof(Header) + 2);
                 return PkgState::CRC_PKG_ERROR;
             }
             
             buffer.erase(buffer.begin(), buffer.begin() + i + header.dataLen + sizeof(Header) + 2);
-            bag_sum ++;
+            pkg_sum ++;
 
             std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
             std::chrono::duration<double> time = end - start;
            
-            printf("crc error rate : %f bag sum rate: %f time : %f \n",
-            float(error_sum_header + error_sum_payload)/float(bag_sum),double(bag_sum)/time.count(),time.count());
+            printf("crc error rate : %f pkg sum rate: %f ,read_sum reate: %f time : %f \n",
+            float(error_sum_header + error_sum_payload)/float(pkg_sum),double(pkg_sum)/time.count(),float(read_sum)*11/time.count(),time.count());
             classify(decodeBuffer); 
-            memset(decodeBuffer,0x00,sizeof(decodeBuffer));
             return PkgState::COMPLETE;
         }
     }
@@ -115,7 +146,6 @@ void ReadNode::classify(uint8_t* data)
     Header header = arrayToStruct<Header>(data);
     TwoCRC_GimbalMsg twoCRC_GimbalMsg;
     TwoCRC_SentryGimbalMsg twoCRC_SentryGimbalMsg;
-    printf("id:%d \n",header.protocolID);
     switch (header.protocolID)
     {
         case CommunicationType::TWOCRC_GIMBAL_MSG:
@@ -163,16 +193,15 @@ int ReadNode::receive()
 {
     int read_num = 0;
     read_num = read(port->fd,receiveBuffer,64);
-    // read_num = port->receive(receiveBuffer);
-    printf("num per read = %d\n",read_num);
+    read_sum += read_num;
 
-    if(read_num > 0)
+    if(read_num >= 0)
     {
         buffer.insert(buffer.end(),receiveBuffer,receiveBuffer + read_num);
     }
     else
-    {
-
+    { 
+        RCLCPP_ERROR(get_logger(),"Can not read from the ch343 !");
     }
     return read_num;
 }
