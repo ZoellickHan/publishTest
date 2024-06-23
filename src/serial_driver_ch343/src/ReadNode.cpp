@@ -23,11 +23,15 @@ ReadNode::ReadNode(const rclcpp::NodeOptions & options) : rclcpp::Node("read_ch3
     RCLCPP_WARN(get_logger(),"Begin the Node read_ch343 !" );
 
     gimabal_msg_pub_ = this->create_publisher<msg_interfaces::msg::GimbalMsg>("/gimbal_msg", 10);
+
     sentry_gimbal_msg_pub_ = this->create_publisher<msg_interfaces::msg::SentryGimbalMsg>("/sentry_gimbal_msg", 10);
-    gimbal_command_sub_ = this->create_subscription<msg_interfaces::msg::GimbalCommand>("/gimbal_command",rclcpp::SensorDataQoS(),
+
+    gimbal_command_sub_ = this->create_subscription<msg_interfaces::msg::GimbalCommand>("/gimbal_commmand",rclcpp::SensorDataQoS(),
     std::bind(&ReadNode::GimbalCommand_CB,this,std::placeholders::_1));
+
     chassis_command_sub_ = this->create_subscription<msg_interfaces::msg::ChassisCommand>("/chassis_command",rclcpp::SensorDataQoS(),
     std::bind(&ReadNode::ChassisCommand_CB,this,std::placeholders::_1));
+
     sentry_gimbal_command_sub_ = this->create_subscription<msg_interfaces::msg::SentryGimbalCommand>("/sentry_gimbal_command",rclcpp::SensorDataQoS(),
     std::bind(&ReadNode::SentryGimbalCommand_CB,this,std::placeholders::_1));
 
@@ -44,12 +48,12 @@ ReadNode::ReadNode(const rclcpp::NodeOptions & options) : rclcpp::Node("read_ch3
       }
     }
 
+    tx_thread = std::thread(&ReadNode::transmit,this);
+
     while(true)
     {
-        //receive 
         receive();
-        //decode
-        // printf("size:");
+
         pkgState = PkgState::COMPLETE;
         while(receive_buffer.size() > 0 &&  pkgState != PkgState::HEADER_INCOMPLETE && pkgState != PkgState::PAYLOAD_INCOMPLETE)
         {
@@ -132,8 +136,8 @@ PkgState ReadNode::decode()
             std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
             std::chrono::duration<double> time = end - start;
            
-            printf("crc error rate : %f pkg sum rate: %f ,read_sum reate: %f time : %f \n",
-            float(error_sum_header + error_sum_payload)/float(pkg_sum),double(pkg_sum)/time.count(),float(read_sum)*11/time.count(),time.count());
+            // printf("crc error rate : %f pkg sum rate: %f ,read_sum reate: %f time : %f \n",
+            // float(error_sum_header + error_sum_payload)/float(pkg_sum),double(pkg_sum)/time.count(),float(read_sum)*11/time.count(),time.count());
             classify(decodeBuffer); 
             return PkgState::COMPLETE;
         }
@@ -207,6 +211,7 @@ int ReadNode::receive()
 
 void ReadNode::GimbalCommand_CB(msg_interfaces::msg::GimbalCommand::SharedPtr msg)
 {
+    RCLCPP_WARN(get_logger(),"Begin GimbalCommand Callback");
     TwoCRC_GimbalCommand twoCRC_GimbalCommand;
     uint8_t buffer[sizeof(TwoCRC_GimbalCommand)];
 
@@ -227,6 +232,7 @@ void ReadNode::GimbalCommand_CB(msg_interfaces::msg::GimbalCommand::SharedPtr ms
 
 void ReadNode::ChassisCommand_CB(msg_interfaces::msg::ChassisCommand::SharedPtr msg)
 {
+    RCLCPP_WARN(get_logger(),"Begin ChassisCommand Callback");
     TwoCRC_ChassisCommand twoCRC_ChassisCommand;
     uint8_t buffer[sizeof(TwoCRC_ChassisCommand)];
 
@@ -246,6 +252,8 @@ void ReadNode::ChassisCommand_CB(msg_interfaces::msg::ChassisCommand::SharedPtr 
 
 void ReadNode::SentryGimbalCommand_CB(msg_interfaces::msg::SentryGimbalCommand::SharedPtr msg)
 {
+    RCLCPP_WARN(get_logger(),"Begin SentryGimbalCommand Callback");
+
     TwoCRC_SentryGimbalCommand twoCRC_SentryGimbalCommand;
     uint8_t buffer[sizeof(TwoCRC_SentryGimbalCommand)];
 
@@ -271,14 +279,21 @@ void ReadNode::SentryGimbalCommand_CB(msg_interfaces::msg::SentryGimbalCommand::
 int ReadNode::transmit()
 {
     uint8_t buffer[TRANSMIT_BUFFER];
-    int size = transmit_buffer.size();
-    for(int i = size; i < TRANSMIT_BUFFER; i -= TRANSMIT_BUFFER)
+    while(true)
     {
-        std::copy(transmit_buffer.begin(),transmit_buffer.begin()+TRANSMIT_BUFFER,buffer);
-        transmit_buffer.erase(transmit_buffer.begin(),transmit_buffer.begin() + TRANSMIT_BUFFER);
-        write_num = write(port->fd,buffer,TRANSMIT_BUFFER);
-        if(write_num < 0)
-            RCLCPP_ERROR(get_logger(),"Can not transmit");
+        int size = transmit_buffer.size();
+        printf("transmitsize : %d \n",size);
+        if(size > TRANSMIT_BUFFER)
+        {
+            for(int i = size; i < 2*TRANSMIT_BUFFER; i -= TRANSMIT_BUFFER)
+            {
+                std::copy(transmit_buffer.begin(),transmit_buffer.begin()+TRANSMIT_BUFFER,buffer);
+                transmit_buffer.erase(transmit_buffer.begin(),transmit_buffer.begin() + TRANSMIT_BUFFER);
+                write_num = write(port->fd,buffer,TRANSMIT_BUFFER);
+                if(write_num < 0)
+                    RCLCPP_ERROR(get_logger(),"Can not transmit");
+            }
+        }
     }
 }
 

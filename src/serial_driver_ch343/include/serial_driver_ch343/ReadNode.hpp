@@ -58,6 +58,7 @@ private:
     uint8_t decodeBuffer[DECODE_BUFFER_SIZE];
     uint8_t receiveBuffer[READER_BUFFER_SIZE];
     std::mutex transmit_mutex;
+    std::thread tx_thread;
 
     //info
     rclcpp::Publisher<msg_interfaces::msg::GimbalMsg>::SharedPtr gimabal_msg_pub_;

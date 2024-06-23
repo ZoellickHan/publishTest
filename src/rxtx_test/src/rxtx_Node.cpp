@@ -24,6 +24,7 @@ TestNode::TestNode(const rclcpp::NodeOptions & options) : rclcpp::Node("rxtx_tes
 
     for(int i = 0; 1 == 1; i++)
     {
+        RCLCPP_WARN(get_logger(),"Boji is here");
         sentryGimbalCommand.l_shoot_mode = i % 99;
         sentryGimbalCommand.r_shoot_mode = 100 - i%99;
         sentryGimbalCommand.r_target_pitch = 0.4;
@@ -31,7 +32,7 @@ TestNode::TestNode(const rclcpp::NodeOptions & options) : rclcpp::Node("rxtx_tes
         sentryGimbalCommand.l_target_pitch = 0.6;
         sentryGimbalCommand.l_target_yaw   = 0.6;
 
-        sentry_gimbal_command_pub_->publish(sentryGimbalCommand);
+        sentry_gimbal_command_pub_ -> publish(sentryGimbalCommand);
         gimbal_command_pub_ -> publish(gimbalCommand);
         chassis_command_pub_ -> publish(chassisCommand);
     }
