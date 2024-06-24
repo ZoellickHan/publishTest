@@ -16,6 +16,8 @@ TestNode::TestNode(const rclcpp::NodeOptions & options) : rclcpp::Node("rxtx_tes
     gimbal_command_pub_ = this->create_publisher<msg_interfaces::msg::GimbalCommand>("/gimbal_command",10);
     chassis_command_pub_ = this->create_publisher<msg_interfaces::msg::ChassisCommand>("/chassis_command",10);
     sentry_gimbal_command_pub_ = this->create_publisher<msg_interfaces::msg::SentryGimbalCommand>( "/sentry_gimbal_command",10);
+    test_msg_pub_ = this->create_publisher<msg_interfaces::msg::TestMsg>( "/test_msg",10);
+    test2_msg_pub_ = this->create_publisher<msg_interfaces::msg::TestMsg2>( "/test_msg2",10);
 
     RCLCPP_WARN(get_logger(),"Test Node AJIHBFHUGDYIRBGUYVGRG");
     timer_ = this->create_wall_timer(std::chrono::milliseconds(1), std::bind(&TestNode::pub,this));
@@ -26,6 +28,8 @@ void TestNode::pub()
     msg_interfaces::msg::SentryGimbalCommand sentryGimbalCommand;
     msg_interfaces::msg::ChassisCommand chassisCommand;
     msg_interfaces::msg::GimbalCommand gimbalCommand;
+    msg_interfaces::msg::TestMsg testmsg;
+    msg_interfaces::msg::TestMsg2 testmsg2;
     int i  = random();
 
     sentryGimbalCommand.l_shoot_mode = i % 99;
@@ -38,6 +42,8 @@ void TestNode::pub()
     sentry_gimbal_command_pub_   -> publish(sentryGimbalCommand);
     gimbal_command_pub_          -> publish(gimbalCommand);
     chassis_command_pub_         -> publish(chassisCommand);
+    test_msg_pub_                -> publish(testmsg);
+    test2_msg_pub_               -> publish(testmsg2);
 }
 
 void TestNode::debug1(msg_interfaces::msg::GimbalMsg::SharedPtr msg) 

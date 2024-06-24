@@ -20,6 +20,9 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/ChassisCommand.msg"
   "msg/GimbalCommand.msg"
   "msg/SentryGimbalCommand.msg"
+  
+  "msg/TestMsg.msg"
+  "msg/TestMsg2.msg"
 
   DEPENDENCIES
     std_msgs

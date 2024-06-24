@@ -84,7 +84,7 @@ struct Header_4sof
 
 } __attribute__((packed));
 
-struct TwoCRC_GimbalMsg  // TWOCRC_GIMBAL_MSG, also 0xA2
+struct GimbalMsg  // TWOCRC_GIMBAL_MSG, also 0xA2
 {
     Header header;
 
@@ -102,7 +102,7 @@ struct TwoCRC_GimbalMsg  // TWOCRC_GIMBAL_MSG, also 0xA2
 } __attribute__((packed));
 
 
-struct TwoCRC_SentryGimbalMsg  // TWOCRC_GIMBALSTATUS_MSG, also 0xA3
+struct SentryGimbalMsg  // TWOCRC_GIMBALSTATUS_MSG, also 0xA3
 {
     Header header;
 
@@ -126,7 +126,7 @@ struct TwoCRC_SentryGimbalMsg  // TWOCRC_GIMBALSTATUS_MSG, also 0xA3
 
 } __attribute__((packed));
 
-struct TwoCRC_GimbalCommand  // TWOCRC_GIMBAL_CMD, also 0xB1
+struct GimbalCommand  // TWOCRC_GIMBAL_CMD, also 0xB1
 {
     Header header;
 
@@ -139,7 +139,7 @@ struct TwoCRC_GimbalCommand  // TWOCRC_GIMBAL_CMD, also 0xB1
 
 } __attribute__((packed));
 
-struct TwoCRC_ChassisCommand  // TWOCRC_CHASSIS_CMD, also 0xB2
+struct ChassisCommand  // TWOCRC_CHASSIS_CMD, also 0xB2
 {
     Header header;
 
@@ -152,7 +152,7 @@ struct TwoCRC_ChassisCommand  // TWOCRC_CHASSIS_CMD, also 0xB2
 
 } __attribute__((packed));
 
-struct TwoCRC_ActionCommand  // TWOCRC_ACTION_CMD, also 0xB3
+struct ActionCommand  // TWOCRC_ACTION_CMD, also 0xB3
 {
     Header header;
 
@@ -165,7 +165,7 @@ struct TwoCRC_ActionCommand  // TWOCRC_ACTION_CMD, also 0xB3
 
 } __attribute__((packed));
 
-struct TwoCRC_SentryGimbalCommand
+struct SentryGimbalCommand
 {
     Header header;
 

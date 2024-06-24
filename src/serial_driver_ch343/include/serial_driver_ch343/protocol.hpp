@@ -34,20 +34,11 @@ namespace serial_driver
 #define ID_NUM 17
 enum CommunicationType : uint8_t
 {
-    BEAT_MSG                 = 0x01,
-    GIMBAL_MSG               = 0x02,
-    CHASSIS_MSG              = 0x03,
-    SENTRY_GIMBAL_MSG        = 0x07,
-    FIELD_MSG                = 0x09,
     TWOCRC_GIMBAL_MSG        = 0xA2,
     TWOCRC_CHASSIS_MSG       = 0xA3,
     TWOCRC_SENTRY_GIMBAL_MSG = 0xA7,
     TWOCRC_FIELD_MSG         = 0xA9,
 
-    GIMBAL_CMD               = 0x12,
-    CHASSIS_CMD              = 0x13,
-    ACTION_CMD               = 0x14,
-    SENTRY_GIMBAL_CMD        = 0x17,
     TWOCRC_GIMBAL_CMD        = 0xB2,
     TWOCRC_CHASSIS_CMD       = 0xB3,
     TWOCRC_ACTION_CMD        = 0xB4,
@@ -70,21 +61,40 @@ struct Header
 
 } __attribute__((packed));
 
-struct Header_4sof
+struct ChassisMsg
 {
-    uint8_t sof1        = 0xAAu;
-    uint8_t sof2        = 0xAAu;
-    uint8_t sof3        = 0xAAu;
-    uint8_t sof4        = 0xAAu;
-    uint8_t dataLen     = 0;
-    uint8_t little_endian  = 0;
-    uint8_t protocolID     = 0x55;
-    uint8_t crc_1;
-    uint8_t crc_2;
+    Header header;
+
+    float xVel;
+    float yVel; 
+    float wVel;
+     
+    uint8_t crc_3;
+    uint8_t crc_4;
 
 } __attribute__((packed));
 
-struct TwoCRC_GimbalMsg  // TWOCRC_GIMBAL_MSG, also 0xA2
+struct FieldMsg
+{
+    Header header;
+
+    uint8_t game_state;
+    uint16_t remain_time;
+    uint16_t bullet_remain;
+    uint8_t team;  // 0 - red 1 - blue
+
+    uint16_t red_hp[8];
+    uint16_t blue_hp[8];
+    bool in_combat;
+    bool bullet_supply_available;
+    bool shooter_locked;
+
+    uint8_t crc_3;
+    uint8_t crc_4;
+
+} __attribute__((packed));
+
+struct GimbalMsg  // TWOCRC_GIMBAL_MSG, also 0xA2
 {
     Header header;
 
@@ -102,7 +112,7 @@ struct TwoCRC_GimbalMsg  // TWOCRC_GIMBAL_MSG, also 0xA2
 } __attribute__((packed));
 
 
-struct TwoCRC_SentryGimbalMsg  // TWOCRC_GIMBALSTATUS_MSG, also 0xA3
+struct SentryGimbalMsg  // TWOCRC_GIMBALSTATUS_MSG, also 0xA3
 {
     Header header;
 
@@ -126,7 +136,7 @@ struct TwoCRC_SentryGimbalMsg  // TWOCRC_GIMBALSTATUS_MSG, also 0xA3
 
 } __attribute__((packed));
 
-struct TwoCRC_GimbalCommand  // TWOCRC_GIMBAL_CMD, also 0xB1
+struct GimbalCommand  // TWOCRC_GIMBAL_CMD, also 0xB1
 {
     Header header;
 
@@ -139,7 +149,7 @@ struct TwoCRC_GimbalCommand  // TWOCRC_GIMBAL_CMD, also 0xB1
 
 } __attribute__((packed));
 
-struct TwoCRC_ChassisCommand  // TWOCRC_CHASSIS_CMD, also 0xB2
+struct ChassisCommand  // TWOCRC_CHASSIS_CMD, also 0xB2
 {
     Header header;
 
@@ -152,12 +162,12 @@ struct TwoCRC_ChassisCommand  // TWOCRC_CHASSIS_CMD, also 0xB2
 
 } __attribute__((packed));
 
-struct TwoCRC_ActionCommand  // TWOCRC_ACTION_CMD, also 0xB3
+struct ActionCommand  // TWOCRC_ACTION_CMD, also 0xB3
 {
     Header header;
 
     bool scan;
-    bool spin;
+    float spin;
     bool cv_enable;
 
     uint8_t crc_3;
@@ -165,7 +175,7 @@ struct TwoCRC_ActionCommand  // TWOCRC_ACTION_CMD, also 0xB3
 
 } __attribute__((packed));
 
-struct TwoCRC_SentryGimbalCommand
+struct SentryGimbalCommand
 {
     Header header;
 

@@ -11,6 +11,8 @@
 #include "msg_interfaces/msg/chassis_command.hpp"
 #include "msg_interfaces/msg/gimbal_command.hpp"
 #include "msg_interfaces/msg/sentry_gimbal_command.hpp"
+#include "msg_interfaces/msg/test_msg.hpp"
+#include "msg_interfaces/msg/test_msg2.hpp"
 //other
 #include "protocol.hpp"
 namespace serial_driver
@@ -33,6 +35,8 @@ private:
     rclcpp::Publisher<msg_interfaces::msg::GimbalCommand>::SharedPtr gimbal_command_pub_;
     rclcpp::Publisher<msg_interfaces::msg::ChassisCommand>::SharedPtr chassis_command_pub_;
     rclcpp::Publisher<msg_interfaces::msg::SentryGimbalCommand>::SharedPtr sentry_gimbal_command_pub_;
+    rclcpp::Publisher<msg_interfaces::msg::TestMsg>::SharedPtr test_msg_pub_;
+    rclcpp::Publisher<msg_interfaces::msg::TestMsg2>::SharedPtr test2_msg_pub_;
     int pkg_sum = 0;
     std::thread pub_thread;
 

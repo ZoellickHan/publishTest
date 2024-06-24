@@ -21,6 +21,8 @@
 #include "msg_interfaces/msg/chassis_command.hpp"
 #include "msg_interfaces/msg/gimbal_command.hpp"
 #include "msg_interfaces/msg/sentry_gimbal_command.hpp"
+#include "msg_interfaces/msg/test_msg.hpp"
+#include "msg_interfaces/msg/test_msg2.hpp"
 
 #include <chrono>
 #include <cstring>
@@ -43,7 +45,11 @@ private:
     void GimbalCommand_CB(msg_interfaces::msg::GimbalCommand::SharedPtr msg);
     void ChassisCommand_CB(msg_interfaces::msg::ChassisCommand::SharedPtr msg);
     void SentryGimbalCommand_CB(msg_interfaces::msg::SentryGimbalCommand::SharedPtr msg);
+    void test_CB(msg_interfaces::msg::TestMsg::SharedPtr msg);
+    void test2_CB(msg_interfaces::msg::TestMsg2::SharedPtr msg);
     void rx();
+
+    int trans_pkg_sum = 0;
     std::shared_ptr<SerialConfig> config;
     //  (2000000,8,false,StopBit::TWO,Parity::NONE);
 
@@ -65,6 +71,8 @@ private:
     rclcpp::Subscription<msg_interfaces::msg::GimbalCommand>::SharedPtr gimbal_command_sub_;
     rclcpp::Subscription<msg_interfaces::msg::ChassisCommand>::SharedPtr chassis_command_sub_;
     rclcpp::Subscription<msg_interfaces::msg::SentryGimbalCommand>::SharedPtr sentry_gimbal_command_sub_;
+    rclcpp::Subscription<msg_interfaces::msg::TestMsg>::SharedPtr acction_sub_;
+    rclcpp::Subscription<msg_interfaces::msg::TestMsg2>::SharedPtr test_2_sub_;
     rclcpp::TimerBase::SharedPtr timer1_;
     rclcpp::TimerBase::SharedPtr timer2_;
     //protocol 
