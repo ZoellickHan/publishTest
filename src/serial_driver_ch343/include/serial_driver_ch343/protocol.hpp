@@ -19,7 +19,7 @@
 // UART parameters:
 /*
  * baud_rate = 2000000
- * stop bits = 1
+ * stop bits = 2
  * parity = none
  * hardware_flow_ctrl = no
  * data_size = 8-bit
@@ -31,7 +31,7 @@ namespace serial_driver
 // 0x stands for ring buffer msg received (4 - 5 for msg from pcb to nuc)
 // 1x stands for msg sent (11 - 20 for msg from nuc to pcb)
 // 2x stands for ring buffer msg sent (21 - 30 for msg from nuc to pcb)
-#define ID_NUM 17
+#define ID_NUM 8
 enum CommunicationType : uint8_t
 {
     TWOCRC_GIMBAL_MSG        = 0xA2,

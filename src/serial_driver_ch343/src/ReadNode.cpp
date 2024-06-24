@@ -43,9 +43,8 @@ ReadNode::ReadNode(const rclcpp::NodeOptions & options) : rclcpp::Node("read_ch3
     }
 
     timer1_ = this->create_wall_timer(std::chrono::milliseconds(1), std::bind(&ReadNode::transmit,this));
-    // timer2_ = this->create_wall_timer(std::chrono::milliseconds(1), std::bind(&ReadNode::rx,this));
     rx_thread = std::thread(&ReadNode::rx,this);
-    // tx_thread = std::thread(&ReadNode::transmit,this);
+
 }
 
 void ReadNode::rx()
@@ -108,24 +107,21 @@ PkgState ReadNode::decode()
         {
             if( i + sizeof(Header) > size)
             {
-                printf("PkgState::HEADER_INCOMPLETE\n");
                 return PkgState::HEADER_INCOMPLETE;
             }
+
             std::copy(receive_buffer.begin() + i, receive_buffer.begin()+ i + sizeof(Header), decodeBuffer);
             crc_ok_header = crc16::Verify_CRC16_Check_Sum(decodeBuffer, sizeof(Header));
 
             if( !crc_ok_header )
             {
                 error_sum_header ++;
-                try
-                {
+                try{
                     receive_buffer.erase(receive_buffer.begin() + i, receive_buffer.begin() + i + sizeof(Header));
                 }catch(const std::exception & ex){
                     RCLCPP_ERROR(get_logger(), "Error creating serial port:  %s", ex.what());
-                    printf("awful erase\n");
                 }
-                
-                printf("PkgState::CRC_HEADER_ERRROR\n");
+
                 return PkgState::CRC_HEADER_ERRROR;
             }
            
@@ -134,7 +130,6 @@ PkgState ReadNode::decode()
             // pkg length = payload(dataLen) + header len (include header crc) + 2crc 
             if( i + header.dataLen + sizeof(Header) + 2 > size )
             {
-                printf("PkgState::PAYLOAD_INCOMPLETE\n");
                 return PkgState::PAYLOAD_INCOMPLETE;
             }
             
@@ -146,7 +141,7 @@ PkgState ReadNode::decode()
                 error_sum_payload ++;
                 //payload error
                 try{
-                    //check if there is a coming pkg ?
+                    //check if there is a coming pkg 
                     for(int j = i + 1 ; j < header.dataLen + sizeof(Header) + 2 + i; j++)
                     {
                         if(receive_buffer[j] == 0xAA)
@@ -189,10 +184,8 @@ PkgState ReadNode::decode()
                     receive_buffer.erase(receive_buffer.begin(), receive_buffer.begin() + i + header.dataLen + sizeof(Header) + 2);
                 }catch(const std::exception & ex){
                     RCLCPP_ERROR(get_logger(), "Error creating serial port:  %s", ex.what());
-                    printf("awful 2\n");
                 }
                 
-                printf("PkgState::CRC_PKG_ERROR\n");
                 return PkgState::CRC_PKG_ERROR;
             }
 
@@ -203,7 +196,6 @@ PkgState ReadNode::decode()
             }catch(const std::exception & ex)
             {
                 RCLCPP_ERROR(get_logger(), "Error creating serial port:  %s", ex.what());
-                printf("awful 3 \n");
             }
             
             pkg_sum ++;
@@ -214,10 +206,8 @@ PkgState ReadNode::decode()
             printf("crc error rate : %f pkg sum rate: %f ,read_sum reate: %f transmit hz :%f  time : %f \n",
             float(error_sum_header + error_sum_payload)/float(pkg_sum),double(pkg_sum)/time.count(),float(read_sum)*11/time.count(),trans_pkg_sum/time.count(),time.count());
             classify(decodeBuffer); 
-            printf("PkgState::COMPLETE\n");
             return PkgState::COMPLETE;
         }
-    
     }
     receive_buffer.erase(receive_buffer.begin(),receive_buffer.end());
     return PkgState::OTHER;
@@ -226,45 +216,59 @@ PkgState ReadNode::decode()
 void ReadNode::classify(uint8_t* data)
 {
     Header header = arrayToStruct<Header>(data);
-    GimbalMsg twoCRC_GimbalMsg;
-    SentryGimbalMsg twoCRC_SentryGimbalMsg;
+
+    GimbalMsg gimbalMsg;
+    SentryGimbalMsg sentryGimbalMsg;
+    FieldMsg fieldMsg;
+    ChassisMsg chassisMsg;
+
     switch (header.protocolID)
     {
         case CommunicationType::TWOCRC_GIMBAL_MSG:
         {
-            twoCRC_GimbalMsg = arrayToStruct<GimbalMsg>(data);
+            gimbalMsg = arrayToStruct<GimbalMsg>(data);
             msg_interfaces::msg::GimbalMsg gimbalmsg;
-            gimbalmsg.bullet_speed = twoCRC_GimbalMsg.bullet_speed;
-            gimbalmsg.cur_cv_mode  = twoCRC_GimbalMsg.cur_cv_mode;
-            gimbalmsg.q_w          = twoCRC_GimbalMsg.q_w;
+            gimbalmsg.bullet_speed = gimbalMsg.bullet_speed;
+            gimbalmsg.cur_cv_mode  = gimbalMsg.cur_cv_mode;
+            gimbalmsg.q_w          = gimbalMsg.q_w;
 
-            gimbalmsg.q_x          = twoCRC_GimbalMsg.q_x;
-            gimbalmsg.q_y          = twoCRC_GimbalMsg.q_y;
-            gimbalmsg.q_z          = twoCRC_GimbalMsg.q_z;
+            gimbalmsg.q_x          = gimbalMsg.q_x;
+            gimbalmsg.q_y          = gimbalMsg.q_y;
+            gimbalmsg.q_z          = gimbalMsg.q_z;
             gimabal_msg_pub_ -> publish(gimbalmsg);
             break;
         }
         case CommunicationType::TWOCRC_SENTRY_GIMBAL_MSG:
         {
-            twoCRC_SentryGimbalMsg = arrayToStruct<SentryGimbalMsg>(data);
+            sentryGimbalMsg = arrayToStruct<SentryGimbalMsg>(data);
             msg_interfaces::msg::SentryGimbalMsg sentryGimbalMsg;
-            sentryGimbalMsg.bullet_speed    = twoCRC_SentryGimbalMsg.bullet_speed;
-            sentryGimbalMsg.big_q_w         = twoCRC_SentryGimbalMsg.big_q_w;
-            sentryGimbalMsg.big_q_x         = twoCRC_SentryGimbalMsg.big_q_x; 
-            sentryGimbalMsg.big_q_y         = twoCRC_SentryGimbalMsg.big_q_y;
-            sentryGimbalMsg.big_q_z         = twoCRC_SentryGimbalMsg.big_q_z; 
-            sentryGimbalMsg.cur_cv_mode     = twoCRC_SentryGimbalMsg.cur_cv_mode; 
-            sentryGimbalMsg.small_q_w       = twoCRC_SentryGimbalMsg.small_q_w; 
-            sentryGimbalMsg.small_q_x       = twoCRC_SentryGimbalMsg.small_q_x; 
-            sentryGimbalMsg.small_q_y       = twoCRC_SentryGimbalMsg.small_q_y;
-            sentryGimbalMsg.small_q_z       = twoCRC_SentryGimbalMsg.small_q_z;
-            sentryGimbalMsg.target_color    = twoCRC_SentryGimbalMsg.target_color;
+            sentryGimbalMsg.bullet_speed    = sentryGimbalMsg.bullet_speed;
+            sentryGimbalMsg.big_q_w         = sentryGimbalMsg.big_q_w;
+            sentryGimbalMsg.big_q_x         = sentryGimbalMsg.big_q_x; 
+            sentryGimbalMsg.big_q_y         = sentryGimbalMsg.big_q_y;
+            sentryGimbalMsg.big_q_z         = sentryGimbalMsg.big_q_z; 
+            sentryGimbalMsg.cur_cv_mode     = sentryGimbalMsg.cur_cv_mode; 
+            sentryGimbalMsg.small_q_w       = sentryGimbalMsg.small_q_w; 
+            sentryGimbalMsg.small_q_x       = sentryGimbalMsg.small_q_x; 
+            sentryGimbalMsg.small_q_y       = sentryGimbalMsg.small_q_y;
+            sentryGimbalMsg.small_q_z       = sentryGimbalMsg.small_q_z;
+            sentryGimbalMsg.target_color    = sentryGimbalMsg.target_color;
 
             sentry_gimbal_msg_pub_ -> publish(sentryGimbalMsg);        
             break;
         }
+        case CommunicationType::TWOCRC_FIELD_MSG:
+        {
+            fieldMsg = arrayToStruct<FieldMsg>(data);
+
+        }
+        case CommunicationType::TWOCRC_CHASSIS_MSG:
+        {
+
+        }
         default:
         {
+            
             printf("type is not defined !\n");
             break;
         }
