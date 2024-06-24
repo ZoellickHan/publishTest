@@ -42,13 +42,25 @@ ReadNode::ReadNode(const rclcpp::NodeOptions & options) : rclcpp::Node("read_ch3
 
 void ReadNode::rx()
 {
-    while(true){ 
+    while(true)
+    { 
     receive();
     pkgState = PkgState::COMPLETE;
     while(receive_buffer.size() > 0 &&  pkgState != PkgState::HEADER_INCOMPLETE && pkgState != PkgState::PAYLOAD_INCOMPLETE)
     {
-        // eraser();
         pkgState = decode();
+        static PkgState laststate = PkgState::COMPLETE;
+        if(laststate == PkgState::OTHER  )
+        {
+
+        }
+        else if ( pkgState == PkgState::OTHER)
+        {
+            printf("occur \n");
+        }
+
+        laststate = pkgState;
+
         switch (pkgState)
         {
         case PkgState::COMPLETE :
@@ -80,8 +92,7 @@ void ReadNode::rx()
 
 PkgState ReadNode::decode()
 {    
-    int size = receive_buffer.size();
-    // printf("size: %d \n",size);        
+    int size = receive_buffer.size(); 
 
     for(int i = 0; i < size; i++)
     {
@@ -98,8 +109,9 @@ PkgState ReadNode::decode()
             if( !crc_ok_header )
             {
                 error_sum_header ++;
-
-                try{
+                // !!!!
+                try
+                {
                     receive_buffer.erase(receive_buffer.begin() + i, receive_buffer.begin() + i + sizeof(Header));
                 }catch(const std::exception & ex){
                     RCLCPP_ERROR(get_logger(), "Error creating serial port:  %s", ex.what());
@@ -115,8 +127,6 @@ PkgState ReadNode::decode()
             // pkg length = payload(dataLen) + header len (include header crc) + 2crc 
             if( i + header.dataLen + sizeof(Header) + 2 > size )
             {
-               
-                // pkg_sum ++;
                 printf("PkgState::PAYLOAD_INCOMPLETE\n");
                 return PkgState::PAYLOAD_INCOMPLETE;
             }
@@ -127,7 +137,48 @@ PkgState ReadNode::decode()
             if(!crc_ok)
             {
                 error_sum_payload ++;
+                //payload error
                 try{
+                    //check if there is a coming pkg ?
+                    for(int j = i + 1 ; j < header.dataLen + sizeof(Header) + 2 + i; j++)
+                    {
+                        if(receive_buffer[j] == 0xAA)
+                        {                            
+                           if( j + sizeof(Header) > header.dataLen + sizeof(Header) + 2 + i)
+                           {
+                                receive_buffer.erase(receive_buffer.begin(),receive_buffer.begin() + j);
+                                return PkgState::HEADER_INCOMPLETE;
+                           }
+
+                            std::copy(receive_buffer.begin() + i, receive_buffer.begin()+ i + sizeof(Header), decodeBuffer);
+                            crc_ok_header = crc16::Verify_CRC16_Check_Sum(decodeBuffer, sizeof(Header));
+
+                            if(!crc_ok_header)
+                            {
+                                receive_buffer.erase(receive_buffer.begin(),receive_buffer.begin() + j + sizeof(Header));
+                                j  += sizeof(Header) - 1;
+                                continue;
+                            }
+
+                            this->header = arrayToStruct<Header>(decodeBuffer);
+
+                            if( j + sizeof(Header) + header.dataLen + 2)
+                            {
+                                receive_buffer.erase(receive_buffer.begin(),receive_buffer.begin() + j);
+                                return PkgState::PAYLOAD_INCOMPLETE;                                
+                            }
+                                
+                            std::copy(receive_buffer.begin() + i ,receive_buffer.begin() + i + header.dataLen + sizeof(Header) + 2, decodeBuffer);
+                            crc_ok = crc16::Verify_CRC16_Check_Sum(decodeBuffer,header.dataLen + sizeof(Header) + 2);
+
+                            if(!crc_ok)
+                            {
+                                receive_buffer.erase(receive_buffer.begin(),receive_buffer.begin() + j + sizeof(Header) + header.dataLen +2 );
+                                j  += sizeof(Header) + header.dataLen +2 - 1;
+                                continue;
+                            }
+                        }                                                                                                                     
+                    }
                     receive_buffer.erase(receive_buffer.begin(), receive_buffer.begin() + i + header.dataLen + sizeof(Header) + 2);
                 }catch(const std::exception & ex){
                     RCLCPP_ERROR(get_logger(), "Error creating serial port:  %s", ex.what());
@@ -137,10 +188,13 @@ PkgState ReadNode::decode()
                 printf("PkgState::CRC_PKG_ERROR\n");
                 return PkgState::CRC_PKG_ERROR;
             }
-            
-            try{
+
+            //complete
+            try
+            {
                 receive_buffer.erase(receive_buffer.begin(), receive_buffer.begin() + i + header.dataLen + sizeof(Header) + 2);
-            }catch(const std::exception & ex){
+            }catch(const std::exception & ex)
+            {
                 RCLCPP_ERROR(get_logger(), "Error creating serial port:  %s", ex.what());
                 printf("awful 3 \n");
             }
@@ -156,7 +210,11 @@ PkgState ReadNode::decode()
             printf("PkgState::COMPLETE\n");
             return PkgState::COMPLETE;
         }
+    
     }
+    receive_buffer.erase(receive_buffer.begin(),receive_buffer.end());
+    // printf("other\n");
+    return PkgState::OTHER;
 }
 
 void ReadNode::classify(uint8_t* data)

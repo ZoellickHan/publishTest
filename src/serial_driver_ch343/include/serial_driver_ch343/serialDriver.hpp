@@ -18,6 +18,7 @@ namespace serial_driver
         PAYLOAD_INCOMPLETE,
         CRC_HEADER_ERRROR,
         CRC_PKG_ERROR,
+        OTHER
     };
 
 
